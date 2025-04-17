@@ -8,10 +8,10 @@ import os
 # Load environment variables
 load_dotenv()
 
-# Streamlit page config
+# Page config
 st.set_page_config(page_title="Sign Language Chatbot", page_icon="🤟", layout="centered")
 
-# --- CSS Styling for Chatbot UI ---
+# CSS Styling
 st.markdown("""
     <style>
     body {
@@ -40,11 +40,11 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# --- Title ---
+# Title
 st.markdown("<h2 style='text-align:center;'>🤖 Learn Sign Language with AI</h2>", unsafe_allow_html=True)
 st.markdown("<p style='text-align:center;'>Ask about any sign and watch it come alive in a video!</p>", unsafe_allow_html=True)
 
-# --- Content Moderation ---
+# Content Moderation
 MODERATION_KEYWORDS = [
     'hate', 'violence', 'sexual', 'kill', 'attack', 'harass', 'abuse',
     'racist', 'nude', 'porn', 'nsfw', 'slut', 'fuck', 'shit', 'bitch',
@@ -54,29 +54,29 @@ MODERATION_KEYWORDS = [
 def moderate_query(query):
     return any(word in query.lower() for word in MODERATION_KEYWORDS)
 
-# --- DeepSeek API ---
+# DeepSeek API
 deepseek_api_url = "https://api.deepseek.com"
 deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
 if not deepseek_api_key:
     st.error("API key not found. Please check your .env file.")
     st.stop()
 
-# --- Load Data ---
+# Load CSV data
 @st.cache_data
 def load_data():
     try:
-        df = pd.read_csv("videos.csv")
+        df = pd.read_csv("videos1.csv")
         if not all(col in df.columns for col in ['Relations', 'URL']):
             st.error("CSV must have 'Relations' and 'URL' columns.")
             st.stop()
         return df
     except FileNotFoundError:
-        st.error("videos.csv not found.")
+        st.error("videos1.csv not found.")
         st.stop()
 
 df = load_data()
 
-# --- Load Embedding Model ---
+# Load embedding model
 @st.cache_resource
 def load_model():
     with st.spinner("Loading AI brain..."):
@@ -84,10 +84,10 @@ def load_model():
 
 model = load_model()
 
-# --- Precompute Embeddings ---
+# Precompute embeddings
 @st.cache_data
 def get_embeddings():
-    video_texts = [row['Relations'] for _, row in df.iterrows()]
+    video_texts = df['Relations'].tolist()
     st.progress(50, text="Processing sign database...")
     embeddings = model.encode(video_texts, convert_to_tensor=True)
     st.progress(100, text="All set to learn!")
@@ -95,7 +95,7 @@ def get_embeddings():
 
 video_embeddings = get_embeddings()
 
-# --- Chat Input ---
+# Input box
 query = st.text_input("👤 You:", placeholder="Type a word/phrase to see the sign...")
 
 if query:
@@ -114,7 +114,17 @@ if query:
 
         if best_score >= similarity_threshold:
             row = df.iloc[best_idx]
-            st.markdown(f"<div class='chat-container'><div class='chat-bubble bot'>✅ Here's the sign for: <strong>{row['Relations']}</strong></div></div>", unsafe_allow_html=True)
+            relation = row['Relations']
+            st.markdown(f"<div class='chat-container'><div class='chat-bubble bot'>✅ Here's the sign for: <strong>{relation}</strong></div></div>", unsafe_allow_html=True)
+
+            # ✅ Show image if available and valid
+            img_url = str(row.get('ImageURL', '')).strip()
+            if img_url and img_url.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                st.image(img_url, caption=f"🖼️ Image of '{relation}'", use_column_width=True)
+            else:
+                st.warning("⚠️ No valid image found for this sign.")
+
+            # 🎥 Show video
             st.video(row['URL'])
 
             with st.expander("💡 Practice Tips"):
@@ -154,7 +164,7 @@ if query:
 
                 st.markdown(f"<div class='chat-container'><div class='chat-bubble bot'>🤖 {reply}</div></div>", unsafe_allow_html=True)
 
-                # Suggest closest signs
+                # 🔁 Suggest similar signs
                 st.subheader("🔍 Similar signs to explore:")
                 top_k = min(3, len(df))
                 top_indices = scores.argsort(descending=True)[:top_k]
@@ -165,14 +175,17 @@ if query:
                         match_row = df.iloc[idx]
                         with cols[i]:
                             st.markdown(f"**{match_row['Relations']}**")
+                            simg = str(match_row.get('ImageURL', '')).strip()
+                            if simg and simg.lower().endswith(('.png', '.jpg', '.jpeg', '.webp')):
+                                st.image(simg, use_column_width=True)
                             st.video(match_row['URL'])
 
             except requests.Timeout:
                 st.warning("⏳ It's taking too long. Try something simpler.")
-            except:
-                st.error("Something went wrong. Let's try again!")
+            except Exception as e:
+                st.error(f"Something went wrong. Let's try again!\n\nError: {e}")
 
-# --- Footer ---
+# Footer
 st.markdown("---")
 st.markdown("""
     <div style='text-align:center;'>
