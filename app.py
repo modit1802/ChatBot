@@ -80,7 +80,7 @@ df = load_data()
 @st.cache_resource
 def load_model():
     with st.spinner("Loading AI brain..."):
-        return SentenceTransformer("all-MiniLM-L6-v2")
+        return SentenceTransformer("models/all-MiniLM-L6-v2")
 
 model = load_model()
 

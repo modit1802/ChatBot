@@ -5,3 +5,8 @@ python-dotenv
 requests
 torch
 torchvision
+fastapi
+uvicorn
+sentence-transformers
+torch
+pandas
